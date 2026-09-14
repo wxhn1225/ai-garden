@@ -1,0 +1,39 @@
+{
+  "name": "ai-garden",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@12.4.1",
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build && pagefind --site out && node scripts/finalize-export.mjs",
+    "typecheck": "next typegen && tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "preview": "node scripts/serve.mjs",
+    "verify": "node scripts/verify-export.mjs"
+  },
+  "dependencies": {
+    "gray-matter": "4.0.3",
+    "lucide-react": "1.45.0",
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.13",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "26.5.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "pagefind": "1.5.2",
+    "postcss": "8.5.28",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2"
+  }
+}
