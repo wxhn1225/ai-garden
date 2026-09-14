@@ -1711,6 +1711,9 @@ html {
   .hero {
     grid-template-columns: minmax(0, 1fr) 225px;
   }
+  .desk-note p {
+    font-size: 16px;
+  }
   .paper-monogram {
     display: none;
   }
