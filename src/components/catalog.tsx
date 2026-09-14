@@ -14,6 +14,7 @@ type Filters = {
   sort: 'curated' | 'newest' | 'az';
   view: 'grid' | 'list';
 };
+const deskOrder = ['refero', 'ui-ux-pro-max', '21st-dev', 'design-spells', 'learn-performance', 'react-bits'];
 const defaults: Filters = { query: '', kind: '全部', tag: '', sort: 'curated', view: 'grid' };
 type SearchIndex = {
   search: (query: string) => Promise<{ results: { data: () => Promise<{ url: string }> }[] }>;
@@ -37,6 +38,7 @@ function readFilters(): Filters {
 export function Catalog({ entries, section = 'all' }: { entries: EntrySummary[]; section?: SectionId }) {
   const config = sections.find((item) => item.id === section) || sections[0];
   const [filters, setFilters] = useState<Filters>(defaults);
+  const [showFilters, setShowFilters] = useState(false);
   const [indexedSlugs, setIndexedSlugs] = useState<Set<string>>(new Set());
   const searchRef = useRef<HTMLInputElement>(null);
   const { query, kind, tag, sort, view } = filters;
@@ -129,7 +131,14 @@ export function Catalog({ entries, section = 'all' }: { entries: EntrySummary[];
       )
       .sort((a, b) => {
         if (sort === 'az') return a.title.localeCompare(b.title, 'zh-CN');
-        if (sort === 'curated' && a.featured !== b.featured) return Number(b.featured) - Number(a.featured);
+        if (sort === 'curated') {
+          const aPosition = deskOrder.indexOf(a.slug);
+          const bPosition = deskOrder.indexOf(b.slug);
+          const priority =
+            (aPosition < 0 ? deskOrder.length : aPosition) - (bPosition < 0 ? deskOrder.length : bPosition);
+          if (priority) return priority;
+          if (a.featured !== b.featured) return Number(b.featured) - Number(a.featured);
+        }
         return b.addedAt.localeCompare(a.addedAt) || a.title.localeCompare(b.title, 'zh-CN');
       });
   }, [inSection, query, kind, tag, sort, indexedSlugs]);
@@ -137,203 +146,236 @@ export function Catalog({ entries, section = 'all' }: { entries: EntrySummary[];
 
   return (
     <div className="catalog-page">
-      <div className="page-heading">
-        <div>
+      <section className="hero" aria-labelledby="page-title">
+        <div className="hero-copy">
           <div className="eyebrow">
-            <span />
-            {config.english}
-            <span className="edition">/ PERSONAL COLLECTION</span>
+            {section === 'all' ? 'IDEAS, REFERENCES & SMALL DISCOVERIES' : config.english}
           </div>
-          <h1>
-            {section === 'all' ? '我的学习资料库' : config.label}
-            <span className="heading-period">.</span>
+          <h1 id="page-title">
+            {section === 'all' ? (
+              <>
+                <span className="title-greeting">今天，</span>
+                <span className="title-question">
+                  想研究<span className="hand">点什么？</span>
+                </span>
+              </>
+            ) : (
+              config.label
+            )}
           </h1>
-          <p>{config.description}</p>
-        </div>
-        <div className="collection-number">
-          <strong>{String(inSection.length).padStart(2, '0')}</strong>
-          <span>份值得留下的资料</span>
-        </div>
-      </div>
-
-      {section === 'all' && (
-        <nav className="collection-paths" aria-label="快速进入板块">
-          <Link href="/resources/" className="path-card path-blue">
-            <span className="path-index">01 / FIND INSPIRATION</span>
-            <div>
-              <span>看见好设计</span>
-              <Icon name="external" size={21} />
-            </div>
-            <p>网站、组件与交互灵感</p>
-            <span className="path-icon" aria-hidden="true">
-              <Icon name="layout" size={44} />
-            </span>
-          </Link>
-          <Link href="/skills/" className="path-card path-peach">
-            <span className="path-index">02 / BUILD YOUR TOOLKIT</span>
-            <div>
-              <span>让方法成为工具</span>
-              <Icon name="external" size={21} />
-            </div>
-            <p>设计 Skills 与实践方法</p>
-            <span className="path-icon" aria-hidden="true">
-              <Icon name="sparkles" size={44} />
-            </span>
-          </Link>
-          <Link href="/notes/" className="path-card path-neutral">
-            <span className="path-index">03 / MAKE IT YOURS</span>
-            <div>
-              <span>留下一点思考</span>
-              <Icon name="external" size={21} />
-            </div>
-            <p>笔记、复盘与自己的理解</p>
-            <span className="path-icon" aria-hidden="true">
-              <Icon name="notebook" size={44} />
-            </span>
-          </Link>
-        </nav>
-      )}
-
-      <section className="catalog-workspace" aria-label="查找资料">
-        <div className="search-row">
-          <label className="search-box" htmlFor="resource-search">
-            <Icon name="search" size={21} />
-            <span className="sr-only">搜索资料的名称、标签或正文</span>
-            <input
-              id="resource-search"
-              ref={searchRef}
-              type="search"
-              autoComplete="off"
-              placeholder="找一份资料，或一个新灵感…"
-              value={query}
-              onChange={(event) => update({ query: event.target.value }, true)}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                  update({ query: '' }, true);
-                  searchRef.current?.blur();
-                }
-              }}
-            />
-            <kbd>Ctrl K</kbd>
-          </label>
-          <Link href="/library/keeping-notes/" className="add-resource" aria-label="添加资料">
-            <Icon name="plus" size={18} />
-            <span>添加资料</span>
-          </Link>
-        </div>
-        <div className="quick-tags">
-          <span>试试这些</span>
-          {topTags.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => update({ tag: tag === item ? '' : item })}
-              aria-pressed={tag === item}
-            >
-              # {item}
-            </button>
-          ))}
-        </div>
-        <div className="catalog-toolbar">
-          <fieldset className="type-tabs" aria-label="资料类型">
-            {availableKinds.map((item) => (
-              <button
-                type="button"
-                key={item}
-                className={kind === item ? 'type-tab active' : 'type-tab'}
-                aria-pressed={kind === item}
-                onClick={() => update({ kind: item })}
-              >
-                {item}
-                {item === '全部' && <span>{inSection.length}</span>}
-              </button>
-            ))}
-          </fieldset>
-          <div className="view-options">
-            <label className="sort-select">
-              <Icon name="sort" size={16} />
-              <span className="sr-only">排列顺序</span>
-              <select
-                value={sort}
-                onChange={(event) => update({ sort: event.target.value as Filters['sort'] })}
-              >
-                <option value="curated">推荐顺序</option>
-                <option value="newest">最近收录</option>
-                <option value="az">名称 A—Z</option>
-              </select>
-            </label>
-            <fieldset className="view-toggle" aria-label="显示方式">
-              <button
-                type="button"
-                aria-label="卡片视图"
-                aria-pressed={view === 'grid'}
-                onClick={() => update({ view: 'grid' })}
-              >
-                <Icon name="layout" size={17} />
-              </button>
-              <button
-                type="button"
-                aria-label="列表视图"
-                aria-pressed={view === 'list'}
-                onClick={() => update({ view: 'list' })}
-              >
-                <Icon name="list" size={18} />
-              </button>
-            </fieldset>
-          </div>
-        </div>
-        <div className="result-caption">
-          <p aria-live="polite" aria-atomic="true">
-            {filtering ? '找到' : '全部收录'} <strong>{matches.length}</strong> 份资料
-            {tag && (
-              <button type="button" className="selected-tag" onClick={() => update({ tag: '' })}>
-                {tag}
-                <Icon name="x" size={12} />
-              </button>
+          <p className="intro">
+            {section === 'all' ? (
+              <>
+                把散落的灵感收在一起，
+                <br />
+                给下一次动手，留一点线索。
+              </>
+            ) : (
+              config.description
             )}
           </p>
-          {filtering ? (
-            <button
-              className="text-button"
-              type="button"
-              onClick={() => update({ query: '', kind: '全部', tag: '' })}
-            >
-              清除筛选
-              <Icon name="x" size={13} />
-            </button>
-          ) : (
-            <span>为下一次用到时，提前收好。</span>
-          )}
         </div>
-        {matches.length ? (
-          <div className={`resource-results ${view === 'list' ? 'list-view' : 'grid-view'}`}>
-            {matches.map((entry) => (
-              <ResourceCard key={entry.slug} entry={entry} />
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state">
-            <span className="empty-icon">
-              <Icon name="search" size={30} />
-            </span>
-            <h2>{query ? `没有找到「${query}」` : '这个组合里还没有资料'}</h2>
-            <p>换个关键词，或清除筛选后看看全部收录。</p>
+        <aside className="desk-note" aria-label="写给自己的便笺">
+          <small>a little note to self</small>
+          <p>
+            先收下一个好想法，
+            <br />
+            再慢慢长出自己的理解。
+          </p>
+          <hr />
+          <span className="note-end">保持好奇，留白也没关系。</span>
+        </aside>
+      </section>
+
+      <section className="catalog-workspace" aria-label="查找资料">
+        <div className="search-box">
+          <Icon name="search" size={23} />
+          <label className="sr-only" htmlFor="resource-search">
+            搜索资料的名称、标签或正文
+          </label>
+          <input
+            id="resource-search"
+            ref={searchRef}
+            type="search"
+            autoComplete="off"
+            placeholder="搜一个关键词，让思路开始……"
+            value={query}
+            onChange={(event) => update({ query: event.target.value }, true)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                update({ query: '' }, true);
+                searchRef.current?.blur();
+              }
+            }}
+          />
+          {query && (
             <button
               type="button"
-              className="primary-button"
+              className="clear-search"
               onClick={() => {
-                update({ query: '', kind: '全部', tag: '' });
+                update({ query: '' }, true);
                 searchRef.current?.focus();
               }}
             >
-              清除筛选
+              清空
             </button>
+          )}
+          <kbd aria-label="按斜杠或 Ctrl K 搜索">/</kbd>
+        </div>
+        <div className="desk-heading">
+          <h2>
+            摊开资料，慢慢看 <span className="desk-count">{inSection.length} pieces on the desk</span>
+          </h2>
+          <span className="sort-note">灵感、工具与方法，都有自己的位置。</span>
+        </div>
+
+        <nav className="folder-nav" aria-label="资料板块">
+          {sections.map((item) => (
+            <Link
+              key={item.id}
+              href={item.href}
+              className="folder-tab"
+              data-section={item.id}
+              aria-current={section === item.id ? 'page' : undefined}
+            >
+              {item.id === 'prompts' ? 'Prompt' : item.id === 'notes' ? '笔记' : item.label}
+              <span className="count">
+                {item.id === 'all'
+                  ? entries.length
+                  : entries.filter((entry) => entry.section === item.id).length}
+              </span>
+            </Link>
+          ))}
+        </nav>
+        <div className="folder-body" data-section={section}>
+          <div className="folder-top">
+            <p className="folder-label">
+              {config.label} / {section === 'all' ? 'ALL MY FINDS' : config.english}
+            </p>
+            <div className="view-options">
+              <button
+                type="button"
+                className="filter-toggle"
+                aria-expanded={showFilters}
+                aria-controls="catalog-filters"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <Icon name="sliders" size={16} />
+                筛选{kind !== '全部' || tag ? ' ·' : ''}
+              </button>
+              <label className="sort-select">
+                <Icon name="sort" size={16} />
+                <span className="sr-only">排列顺序</span>
+                <select
+                  value={sort}
+                  onChange={(event) => update({ sort: event.target.value as Filters['sort'] })}
+                >
+                  <option value="curated">推荐顺序</option>
+                  <option value="newest">最近收录</option>
+                  <option value="az">名称 A—Z</option>
+                </select>
+              </label>
+              <fieldset className="view-toggle" aria-label="显示方式">
+                <button
+                  type="button"
+                  aria-label="卡片视图"
+                  aria-pressed={view === 'grid'}
+                  onClick={() => update({ view: 'grid' })}
+                >
+                  <Icon name="layout" size={17} />
+                </button>
+                <button
+                  type="button"
+                  aria-label="列表视图"
+                  aria-pressed={view === 'list'}
+                  onClick={() => update({ view: 'list' })}
+                >
+                  <Icon name="list" size={18} />
+                </button>
+              </fieldset>
+            </div>
           </div>
-        )}
-        <div className="catalog-end">
-          <span />
-          <p>收藏是起点，实践让知识留下来。</p>
-          <span />
+          <div id="catalog-filters" className="catalog-filters" hidden={!showFilters}>
+            <div className="quick-tags">
+              <span>试试这些</span>
+              {topTags.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => update({ tag: tag === item ? '' : item })}
+                  aria-pressed={tag === item}
+                >
+                  # {item}
+                </button>
+              ))}
+            </div>
+            <fieldset className="type-tabs" aria-label="资料类型">
+              {availableKinds.map((item) => (
+                <button
+                  type="button"
+                  key={item}
+                  className={kind === item ? 'type-tab active' : 'type-tab'}
+                  aria-pressed={kind === item}
+                  onClick={() => update({ kind: item })}
+                >
+                  {item}
+                </button>
+              ))}
+            </fieldset>
+          </div>
+          <div className="result-caption">
+            <p aria-live="polite" aria-atomic="true">
+              {filtering ? '找到' : '收好'} <strong>{matches.length}</strong> 份资料
+              {tag && (
+                <button type="button" className="selected-tag" onClick={() => update({ tag: '' })}>
+                  {tag}
+                  <Icon name="x" size={12} />
+                </button>
+              )}
+            </p>
+            {filtering ? (
+              <button
+                className="text-button"
+                type="button"
+                onClick={() => update({ query: '', kind: '全部', tag: '' })}
+              >
+                清除筛选
+                <Icon name="x" size={13} />
+              </button>
+            ) : (
+              <span>阅读便笺，或沿着链接继续探索 ↗</span>
+            )}
+          </div>
+          {matches.length ? (
+            <div className={`resource-results papers ${view === 'list' ? 'list-view' : 'grid-view'}`}>
+              {matches.map((entry) => (
+                <ResourceCard key={entry.slug} entry={entry} />
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <span className="empty-icon" aria-hidden="true">
+                …
+              </span>
+              <h2>{query ? `没有找到「${query}」` : '这个组合里还没有资料'}</h2>
+              <p>换个关键词，或清除筛选后看看全部收录。</p>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => {
+                  update({ query: '', kind: '全部', tag: '' });
+                  searchRef.current?.focus();
+                }}
+              >
+                清除筛选
+              </button>
+            </div>
+          )}
+          <div className="catalog-end">
+            <span />
+            <p>收藏是起点，实践让知识留下来。</p>
+            <span />
+          </div>
         </div>
       </section>
     </div>
@@ -342,63 +384,66 @@ export function Catalog({ entries, section = 'all' }: { entries: EntrySummary[];
 
 function ResourceCard({ entry }: { entry: EntrySummary }) {
   const domain = entry.url ? new URL(entry.url).hostname.replace(/^www\./, '') : '拾知 · 本站内容';
+  const section = sections.find((item) => item.id === entry.section);
+  const tint =
+    entry.section === 'skills'
+      ? 'mint'
+      : entry.section === 'performance'
+        ? 'yellow'
+        : entry.section === 'prompts' || entry.slug === 'design-spells'
+          ? 'pink'
+          : '';
+  const featured = entry.slug === 'refero';
   return (
-    <article className="resource-card">
-      <div className="resource-heading">
-        <span className={`resource-mark mark-${entry.color}`} aria-hidden="true">
-          {entry.mark}
-        </span>
-        <div className="resource-title">
-          <span className="resource-kind">{entry.kind}</span>
-          <h2>
-            <Link href={`/library/${entry.slug}/`} onClick={() => rememberCatalog(entry.slug)}>
-              {entry.title}
-            </Link>
-          </h2>
-        </div>
-        <Link
-          href={`/library/${entry.slug}/`}
-          onClick={() => rememberCatalog(entry.slug)}
-          className="card-arrow"
-          tabIndex={-1}
-          aria-hidden="true"
-        >
-          <Icon name="arrowRight" size={18} />
-        </Link>
+    <article
+      className={`paper ${tint} ${featured ? 'featured' : ''} ${/[\u4e00-\u9fff]/.test(entry.title) ? 'paper-title-cn' : ''}`}
+    >
+      <div className="paper-kicker">
+        <span className="section-label">{section?.label}</span>
+        <span className="kind">{entry.kind}</span>
       </div>
+      <h2 className="paper-title">
+        <Link href={`/library/${entry.slug}/`} onClick={() => rememberCatalog(entry.slug)}>
+          {entry.title}
+        </Link>
+      </h2>
       <p className="resource-description">{entry.description}</p>
       <div className="resource-tags">
         {entry.tags.map((item) => (
-          <span key={item}>{item}</span>
+          <span key={item}># {item}</span>
         ))}
       </div>
       <div className="resource-footer">
-        <span className="resource-domain" title={domain}>
-          <span aria-hidden="true" className="source-dot" />
-          {domain}
-        </span>
         {entry.url ? (
           <a
+            className="domain"
             href={entry.url}
             target="_blank"
             rel="noreferrer"
+            title={domain}
             aria-label={`访问 ${entry.title} 来源（新窗口）`}
-            className="source-link"
           >
-            访问
-            <Icon name="external" size={15} />
+            <span>{domain}</span>
+            <Icon name="external" size={13} />
           </a>
         ) : (
-          <Link
-            href={`/library/${entry.slug}/`}
-            onClick={() => rememberCatalog(entry.slug)}
-            className="source-link"
-          >
-            阅读
-            <Icon name="arrowRight" size={14} />
-          </Link>
+          <span className="domain">{domain}</span>
         )}
+        <Link
+          href={`/library/${entry.slug}/`}
+          onClick={() => rememberCatalog(entry.slug)}
+          className="source-link"
+          aria-label={`阅读 ${entry.title} 便笺`}
+        >
+          {entry.section === 'prompts' ? '看提示词' : '读便笺'}
+          <Icon name="arrowRight" size={15} />
+        </Link>
       </div>
+      {featured && (
+        <span className="paper-monogram" aria-hidden="true">
+          {entry.mark.slice(0, 1)}
+        </span>
+      )}
     </article>
   );
 }
